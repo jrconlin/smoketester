@@ -1,4 +1,3 @@
-"""Scenario Runner"""
 import logging
 import importlib
 import inspect
@@ -19,6 +18,7 @@ from twisted.internet import reactor, ssl, task
 from twisted.python import log
 from twisted.web.client import Agent
 
+import aplt.metrics as metrics
 from aplt import __version__
 from aplt.client import (
     CommandProcessor,
@@ -26,7 +26,7 @@ from aplt.client import (
 )
 from aplt.utils import UnverifiedHTTPS
 from aplt.vapid import Vapid
-import aplt.metrics as metrics
+from aplt.logobserver import JSONLogger
 
 # Necessary for latest version of txaio
 import txaio
@@ -303,9 +303,11 @@ def locate_function(func_name):
     Format of func_name: <package/module>:<function>
 
     """
-    if ":" not in func_name:
-        raise Exception("Missing function designation")
-    module_path, object_path = func_name.split(":")
+    if ":" in func_name:
+        module_path, object_path = func_name.split(":")
+    else:
+        module_path = "aplt.scenarios"
+        object_path = func_name
     scenario = importlib.import_module(module_path)
     for bit in object_path.split("."):
         scenario = getattr(scenario, bit)
@@ -442,20 +444,31 @@ def group_kw_args(*args):
     return argList, kw_args
 
 
+def val_to_level(val):
+    try:
+        val = logging._checkLevel(val)
+        val = int(round(val/10)) * 10
+    except (ValueError, TypeError):
+        val = logging.INFO
+    return val
+
 def run_scenario(args=None, run=True):
     """Run a scenario
 
     Usage:
-        aplt_scenario WEBSOCKET_URL SCENARIO_FUNCTION [SCENARIO_ARGS ...]
+        aplt_scenario SCENARIO_FUNCTION [WEBSOCKET_URL] [SCENARIO_ARGS ...]
                       [--metric_namespace=METRIC_NAMESPACE]
                       [--statsd_host=STATSD_HOST]
                       [--statsd_port=STATSD_PORT]
                       [--datadog_api_key=DD_API_KEY]
                       [--datadog_app_key=DD_APP_KEY]
                       [--datadog_flush_interval=DD_FLUSH_INTERVAL]
-                      [--endpoint=URL]
+                      [-e URL --endpoint=URL]
                       [--endpoint_ssl_cert=SSL_CERT]
                       [--endpoint_ssl_key=SSL_KEY]
+                      [--log_level=LOG_LEVEL]
+                      [--log_format=LOG_FORMAT]
+                      [--log_output=LOG_OUTPUT]
 
     Other environment variables:
     ENDPOINT_SSL_CERT: like --endpoint_ssl_cert, but see below
@@ -467,6 +480,9 @@ def run_scenario(args=None, run=True):
 
     """
     arguments = args or docopt(run_scenario.__doc__, version=__version__)
+    # set some reasonable defaults.
+    if arguments["WEBSOCKET_URL"] is None:
+        arguments["WEBSOCKET_URL"] = "wss://push.services.mozilla.com/"
     arg = arguments["SCENARIO_FUNCTION"]
     scenario = locate_function(arg)
     statsd_client = parse_statsd_args(arguments)
@@ -475,14 +491,23 @@ def run_scenario(args=None, run=True):
     verify_arguments(scenario, *scenario_args, **scenario_kw)
     endpoint, ssl_cert, ssl_key = parse_endpoint_args(arguments)
 
+    # this is a smoke test, so only run one instance once.
     plan = ([scenario, 1, 1, 0] + [(scenario_args, scenario_kw)])
     testplans = [plan]
 
     lh = LoadRunner(testplans, statsd_client, arguments["WEBSOCKET_URL"],
                     endpoint, ssl_cert, ssl_key)
-    observer = log.PythonLoggingObserver()
+    if arguments.get("--log_format"):
+        observer = JSONLogger(arguments.get("--log_name") or "aplt",
+                              arguments.get("--log_level") or "debug",
+                              arguments["--log_format"],
+                              arguments.get("--log_output") or "STDOUT")
+    else:
+        observer = log.PythonLoggingObserver()
     log.startLoggingWithObserver(observer.emit, False)
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=val_to_level(
+        arguments.get("--log_level", logging.INFO))
+    )
     statsd_client.start()
     lh.metrics = statsd_client
     lh.start()
@@ -499,7 +524,7 @@ def run_testplan(args=None, run=True):
     """Run a testplan
 
     Usage:
-        aplt_testplan WEBSOCKET_URL TEST_PLAN
+        aplt_testplan TEST_PLAN WEBSOCKET_URL
                       [--metric_namespace=METRIC_NAMESPACE]
                       [--statsd_host=STATSD_HOST]
                       [--statsd_port=STATSD_PORT]

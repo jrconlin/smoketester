@@ -371,7 +371,7 @@ def _expect_notifications():
     shuffle(chan_regs)
     for _ in range(10):
         notif = yield expect_notifications(chan_regs, 5)
-        log.msg("Got notif: ", notif)
+        log.info("Got notif: {!r}".format(notif))
         yield ack(channel_id=notif["channelID"], version=notif["version"])
     for chid in chan_regs:
         yield unregister(chid)
