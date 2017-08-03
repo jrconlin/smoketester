@@ -118,13 +118,20 @@ class RunnerHarness(object):
         self._connect_waiters.append(processor)
         connectWS(self._factory, contextFactory=self._factory_context)
 
-    def send_notification(self, processor, url, data, ttl, claims=None):
+    def send_notification(self, processor, url, data, ttl, claims={}):
         """Send out a notification to a url for a processor"""
         url = url.encode("utf-8")
         headers = {"TTL": str(ttl)}
         crypto_key = self._crypto_key
         claims = claims or self._claims
         if self._vapid and claims:
+            if "aud" not in claims:
+                parsed = urlparse.urlparse(url)
+                claims["aud"] = "{scheme}://{netloc}".format(
+                    scheme=parsed.scheme,
+                    netloc=parsed.netloc
+                )
+                log.msg("Setting VAPID 'aud' to {}".format(claims["aud"]))
             headers.update(self._vapid.sign(claims))
             crypto_key = "{};p256ecdsa={}".format(
                 crypto_key,

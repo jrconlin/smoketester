@@ -181,7 +181,8 @@ class CommandProcessor(object, policies.TimeoutMixin):
         """Send a notification to the given endpoint URL"""
         self._harness.send_notification(self, url=command.endpoint_url,
                                         data=command.data,
-                                        ttl=command.ttl)
+                                        ttl=command.ttl,
+                                        claims=command.claims)
 
     def expect_notification(self, command):
         """Expect a notification to arrive, if its already arrived then act

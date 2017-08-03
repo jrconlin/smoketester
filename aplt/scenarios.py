@@ -29,7 +29,12 @@ def basic():
     yield hello(None)
     reg, endpoint = yield register(random_channel_id())
     yield timer_start("update.latency")
-    response, content = yield send_notification(endpoint, None, 60)
+    response, content = yield send_notification(
+        endpoint,
+        None,
+        60,
+        claims={"sub": "test@example.com"}
+    )
     yield counter("notification.sent", 1)
     notif = yield expect_notification(reg["channelID"], 5)
     yield counter("notification.received", 1)

@@ -193,9 +193,7 @@ valid `claims` dict.
 **Arguments:** `endpoint_url`, `data`, `ttl`, `claims`
 
 ```python
-yield send_notification('BIG_URL', 'SOME_DATA', 60,
-{aud:"https://example.com", sub,"mailto:admin@example.com",
-exp:1459803905})
+yield send_notification('BIG_URL', 'SOME_DATA', 60, claims={sub,"mailto:admin@example.com"})
 ```
 *Claims* is a JSON blob containing the following:
 
