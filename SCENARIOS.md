@@ -200,7 +200,8 @@ yield send_notification('BIG_URL', 'SOME_DATA', 60, claims={sub,"mailto:admin@ex
 `aud` - The owning URL for the subscription; This is the main URL for
 the site that publishes the subscription. (e.g. If a user has
 subscribed to Push Notifications from "Example.com", the `aud` could
-be `https://example.com`)
+be `https://example.com`) If no value is specified, one will be derived
+from the endpoint.
 
 `sub` - The email address of the administrative contact for the
 subscription.  (e.g. for the above `aud` the address for the

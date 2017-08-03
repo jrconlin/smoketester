@@ -29,12 +29,24 @@ def basic():
     yield hello(None)
     reg, endpoint = yield register(random_channel_id())
     yield timer_start("update.latency")
+    # Send a request using minimal VAPID information as the `claims` arg.
+    # This will automatically set the VAPID `aud` element from the endpoint.
     response, content = yield send_notification(
         endpoint,
         None,
         60,
-        claims={"sub": "test@example.com"}
+        claims={"sub": "mailto:test@example.com"}
     )
+    # response is a standard Requests response object containing
+    #   code    HTTP response code
+    #   headers dictionary of returned header keys and values
+    #   length  length of the response body
+    #   json()  response body (returned as JSON)
+    #   text()  response body (returned as text)
+    #   request Resquesting obbject
+    # content is the response body as text.
+    assert(response.code == 201)
+    assert(content == '')
     yield counter("notification.sent", 1)
     notif = yield expect_notification(reg["channelID"], 5)
     yield counter("notification.received", 1)
