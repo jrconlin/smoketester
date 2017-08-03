@@ -1,5 +1,6 @@
 """Scenario utilities"""
 
+import base64
 import string
 import random
 

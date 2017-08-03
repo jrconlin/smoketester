@@ -1,4 +1,5 @@
 """Several basic push scenarios"""
+import base64
 from twisted.python import log
 
 from aplt.commands import (
@@ -25,16 +26,21 @@ from aplt.utils import bad_push_endpoint
 
 def basic():
     """Connects, sends a notification, than disconnects"""
+
+    # open up the connection
     yield connect()
     yield hello(None)
     reg, endpoint = yield register(random_channel_id())
     yield timer_start("update.latency")
+
+    # data is padded out to a length that is a multiple of 4
+    data = "aLongStringOfEncryptedThings"
     # Send a request using minimal VAPID information as the `claims` arg.
     # This will automatically set the VAPID `aud` element from the endpoint.
     response, content = yield send_notification(
-        endpoint,
-        None,
-        60,
+        endpoint_url=endpoint,
+        data=base64.urlsafe_b64decode(data),
+        ttl=60,
         claims={"sub": "mailto:test@example.com"}
     )
     # response is a standard Requests response object containing
@@ -43,18 +49,36 @@ def basic():
     #   length  length of the response body
     #   json()  response body (returned as JSON)
     #   text()  response body (returned as text)
-    #   request Resquesting obbject
+    #   request Requesting object
     # content is the response body as text.
-    assert(response.code == 201)
-    assert(content == '')
+    assert(response.code == 201, "Did not get a proper response code")
+    assert(content == '', "Response content wasn't empty")
     yield counter("notification.sent", 1)
-    notif = yield expect_notification(reg["channelID"], 5)
+
+    # expect a registration message for the `channelID` in `time` seconds
+    notif = yield expect_notification(
+        channel_id=reg["channelID"],
+        time=5
+    )
+
+    # check that the data matches what we wanted.
+    # NOTE: since encryption is more a client/application server thing,
+    # we can't actually test if it worked. What the system does, however, is
+    # send the data untouched.
+    assert(notif['data'].encode() == data, "Did not get back expected data")
+
     yield counter("notification.received", 1)
     yield timer_end("update.latency")
     log.msg("Got notif: ", notif)
+
+    # tell the server we got the message.
     yield ack(channel_id=notif["channelID"], version=notif["version"])
     yield counter("notification.ack", 1)
+
+    # drop the channelID
     yield unregister(reg["channelID"])
+
+    # drop the connection
     yield disconnect()
 
 

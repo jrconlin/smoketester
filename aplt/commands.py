@@ -35,6 +35,7 @@ class send_notification(namedtuple("SendNotification",
 # set defaults so that we can have the claims be optional.
 send_notification.__new__.__defaults__ = (None, None, 0, None)
 
+
 class expect_notification(namedtuple("ExpectNotification", "channel_id time")):
     pass
 
