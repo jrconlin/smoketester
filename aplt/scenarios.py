@@ -24,6 +24,11 @@ from aplt.decorators import restart
 from aplt.utils import bad_push_endpoint
 
 
+##############################################################################
+# Test Scenarios
+# These can be run from the command line
+##############################################################################
+
 def basic():
     """Connects, sends a notification, than disconnects"""
 
@@ -51,8 +56,8 @@ def basic():
     #   text()  response body (returned as text)
     #   request Requesting object
     # content is the response body as text.
-    assert(response.code == 201, "Did not get a proper response code")
-    assert(content == '', "Response content wasn't empty")
+    assert response.code == 201, "Did not get a proper response code"
+    assert content == '', "Response content wasn't empty"
     yield counter("notification.sent", 1)
 
     # expect a registration message for the `channelID` in `time` seconds
@@ -65,7 +70,7 @@ def basic():
     # NOTE: since encryption is more a client/application server thing,
     # we can't actually test if it worked. What the system does, however, is
     # send the data untouched.
-    assert(notif['data'].encode() == data, "Did not get back expected data")
+    assert notif['data'].encode() == data, "Did not get back expected data"
 
     yield counter("notification.received", 1)
     yield timer_end("update.latency")
@@ -412,7 +417,7 @@ def _expect_notifications():
     shuffle(chan_regs)
     for _ in range(10):
         notif = yield expect_notifications(chan_regs, 5)
-        log.info("Got notif: {!r}".format(notif))
+        log.msg("Got notif: {!r}".format(notif))
         yield ack(channel_id=notif["channelID"], version=notif["version"])
     for chid in chan_regs:
         yield unregister(chid)
